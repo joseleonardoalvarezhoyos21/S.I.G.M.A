@@ -37,7 +37,7 @@ body {
 }
 
 /* ========================================== */
-/* BARRA DE NAVEGACIÓN SUPERIOR */
+/* BARRA DE NAVEGACIÓN SUPERIOR (RESPONSIVA) */
 /* ========================================== */
 
 .saas-header {
@@ -58,6 +58,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap; /* Permite que los elementos se acomoden si la pantalla es pequeña */
+    gap: 12px;
 }
 
 .saas-header h1 {
@@ -71,6 +73,36 @@ body {
 .saas-nav-buttons {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Ajuste específico para celulares en la barra de navegación */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        text-align: center;
+        padding: 10px 15px;
+    }
+
+    .saas-header h1 {
+        text-align: center;
+        font-size: 1.1rem;
+        width: 100%;
+    }
+
+    .saas-nav-buttons {
+        width: 100%;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .saas-nav-buttons button, 
+    .saas-nav-buttons .btn-nav {
+        font-size: 0.85rem;
+        padding: 6px 12px;
+        flex: 1;
+        min-width: 120px;
+    }
 }
 
 /* ========================================== */
@@ -595,5 +627,3 @@ table button, .btn-editar, .btn-eliminar {
     flex: 1;
     min-width: 180px;
 }
-
-
