@@ -497,7 +497,9 @@ async function showResults(leftScreen = false) {
             totalPreguntas: totalQuestions,
             porcentaje: percentage,
             tiempoUtilizado: timeUsedText,
-            fecha: firebase.firestore.FieldValue.serverTimestamp()
+            fecha: firebase.firestore.FieldValue.serverTimestamp(),
+            salioDePantalla: leftScreen ? "⚠️ Salió de la pantalla" : "Normal"
+            
         });
     } catch (fbError) {
         console.error("❌ Error al guardar el resultado en Firebase:", fbError);
@@ -871,7 +873,9 @@ async function exportarResultadosExcel() {
                 "Total Preguntas": d.totalPreguntas,
                 "Porcentaje": d.porcentaje + "%",
                 "Tiempo Usado": d.tiempoUtilizado,
-                "Fecha": d.fecha ? d.fecha.toDate().toLocaleString() : "N/D"
+                "Fecha": d.fecha ? d.fecha.toDate().toLocaleString() : "N/D",
+                "Salidas de Pantalla": d.salioDePantalla || "Normal"
+                
             });
         });
         const worksheet = XLSX.utils.json_to_sheet(datosExcel);
