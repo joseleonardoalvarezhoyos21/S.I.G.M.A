@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrador - Gestión de Preguntas</title>
+    
+    <!-- KaTeX CSS para fórmulas matemáticas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+    
+    <!-- MathLive CSS y Script (Requerido para <math-field>) -->
+    <link rel="stylesheet" href="https://unpkg.com/mathlive/dist/mathlive.css" />
+    <script defer src="https://unpkg.com/mathlive/dist/mathlive.js"></script>
+    
+    <!-- FontAwesome para los iconos de la barra de herramientas -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
+    <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+    <div class="admin-container">
+        <!-- Botón de retorno con flecha -->
+        <div style="position: relative; width: 100%; text-align: left; margin-bottom: 10px;">
+            <a href="index.html" class="btn-volver-flecha" title="Volver al panel" style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background-color: #2b6cb0; color: white; border-radius: 50%; text-decoration: none; font-size: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: background 0.2s;">
+                ⬅️
+            </a>
+        </div>
+
+        <h1>Panel de Administración de Preguntas</h1>
+
+        <!-- FORMULARIO DE CREACIÓN DE PREGUNTAS -->
+        <section class="add-question-section">
+            <h2>Crear Nueva Pregunta</h2>
+            <form id="form-add-question">
+                <div class="form-group">
+                    <label for="area-select">Área / Asignatura:</label>
+                    <select id="area-select" required>
+                        <option value="" disabled selected>Selecciona un área...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="question-text-input">Pregunta:</label>
+                    <input type="text" id="question-text-input" placeholder="Escribe el enunciado..." required>
+                </div>
+
+                <!-- SELECTOR DE IMAGEN O TABLERO TIPO WORD (ENUNCIADO) -->
+                <div class="form-group">
+                    <label>Complemento visual para el enunciado (Opcional):</label>
+                    <div class="visual-mode-buttons">
+                        <button type="button" id="btn-mode-none-add"
+                            onclick="cambiarModoAdd('none')">Ninguno</button>
+                        <button type="button" id="btn-mode-image-add"
+                            onclick="cambiarModoAdd('image')">Subir Imagen</button>
+                        <button type="button" id="btn-mode-canvas-add"
+                            onclick="cambiarModoAdd('canvas')">Usar Tablero Estilo Word</button>
+                    </div>
+
+                    <!-- Sección Subir Imagen -->
+                    <div id="section-image-add" class="resource-section" style="display: none;">
+                        <input type="file" id="question-image-file" accept="image/*">
+                        <div style="margin: 10px 0; text-align: center;">
+                            <img id="preview-new-image" src="" alt="Vista previa"
+                                style="max-width: 250px; max-height: 160px; border-radius: 8px; display: none; object-fit: contain;">
+                        </div>
+                    </div>
+
+                    <!-- Sección Tablero / Editor MathLive o Texto Enriquecido para Adición -->
+                    <div id="section-canvas-add" class="resource-section" style="display: none;">
+                        <div class="visual-mode-buttons" style="margin-bottom: 8px;">
+                            <button type="button" id="btn-submode-math-add" onclick="cambiarSubModoAdd('math')">Editor Matemático</button>
+                            <button type="button" id="btn-submode-text-add" onclick="cambiarSubModoAdd('text')">Texto Normal</button>
+                        </div>
+
+                        <div id="sub-container-math-add">
+                            <label style="font-size: 0.85rem; margin-bottom: 5px; font-weight: bold; display: block;">Diseña tu enunciado enriquecido:</label>
+                            <math-field id="editor-container-add" style="width: 100%; min-height: 120px; font-size: 20px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: white;">
+                                f(x) = \frac{x}{2}
+                            </math-field>
+                        </div>
+
+                        <div id="sub-container-text-add" style="display: none;">
+                            <label style="font-size: 0.85rem; margin-bottom: 5px; font-weight: bold; display: block;">Escribe tu enunciado con formato:</label>
+                            
+                            <!-- BARRA DE HERRAMIENTAS TIPO WORD -->
+                            <div class="ql-toolbar ql-snow">
+                                <button type="button" onclick="formatoTextoAdd('bold')" title="Negrita"><i class="fas fa-bold"></i></button>
+                                <button type="button" onclick="formatoTextoAdd('italic')" title="Cursiva"><i class="fas fa-italic"></i></button>
+                                <button type="button" onclick="formatoTextoAdd('underline')" title="Subrayado"><i class="fas fa-underline"></i></button>
+                                <span style="border-left: 1px solid var(--border-color); margin: 0 2px;"></span>
+                                <button type="button" onclick="formatoTextoAdd('justifyLeft')" title="Alinear a la izquierda"><i class="fas fa-align-left"></i></button>
+                                <button type="button" onclick="formatoTextoAdd('justifyCenter')" title="Centrar"><i class="fas fa-align-center"></i></button>
+                                <button type="button" onclick="formatoTextoAdd('justifyRight')" title="Alinear a la derecha"><i class="fas fa-align-right"></i></button>
+                                <button type="button" onclick="formatoTextoAdd('justifyFull')" title="Justificar"><i class="fas fa-align-justify"></i></button>
+                            </div>
+                            
+                            <!-- ÁREA EDITABLE TIPO WORD -->
+                            <div id="textarea-container-add" class="ql-container ql-snow" contenteditable="true" placeholder="Escribe aquí tu texto detallado..." style="padding: 10px; outline: none; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OPCIONES CON TEXTO E IMAGEN INDEPENDIENTE -->
+                <div class="options-grid">
+                    <div class="option-card-admin">
+                        <label>Opción A:</label>
+                        <input type="text" id="opt-0" placeholder="Texto Opción A" required>
+                        <input type="file" id="opt-file-0" accept="image/*">
+                        <img id="preview-opt-0" src=""
+                            style="max-width: 100px; display: none; margin-top: 5px; border-radius: 4px;"
+                            alt="Vista previa A">
+                    </div>
+                    <div class="option-card-admin">
+                        <label>Opción B:</label>
+                        <input type="text" id="opt-1" placeholder="Texto Opción B" required>
+                        <input type="file" id="opt-file-1" accept="image/*">
+                        <img id="preview-opt-1" src=""
+                            style="max-width: 100px; display: none; margin-top: 5px; border-radius: 4px;"
+                            alt="Vista previa B">
+                    </div>
+                    <div class="option-card-admin">
+                        <label>Opción C:</label>
+                        <input type="text" id="opt-2" placeholder="Texto Opción C" required>
+                        <input type="file" id="opt-file-2" accept="image/*">
+                        <img id="preview-opt-2" src=""
+                            style="max-width: 100px; display: none; margin-top: 5px; border-radius: 4px;"
+                            alt="Vista previa C">
+                    </div>
+                    <div class="option-card-admin">
+                        <label>Opción D:</label>
+                        <input type="text" id="opt-3" placeholder="Texto Opción D" required>
+                        <input type="file" id="opt-file-3" accept="image/*">
+                        <img id="preview-opt-3" src=""
+                            style="max-width: 100px; display: none; margin-top: 5px; border-radius: 4px;"
+                            alt="Vista previa D">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 15px;">
+                    <label for="correct-answer-select">Respuesta Correcta:</label>
+                    <select id="correct-answer-select" required>
+                        <option value="0">Opción A</option>
+                        <option value="1">Opción B</option>
+                        <option value="2">Opción C</option>
+                        <option value="3">Opción D</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn">Guardar Pregunta</button>
+            </form>
+        </section>
+
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid var(--border-color);">
+
+        <!-- FILTRO DE BÚSQUEDA -->
+        <div class="form-group">
+            <label for="filter-area"><strong>Filtrar preguntas por área:</strong></label>
+            <select id="filter-area">
+                <option value="todas">Todas las áreas</option>
+            </select>
+        </div>
+
+        <!-- TABLA DE PREGUNTAS -->
+        <h2>Preguntas Registradas</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Área</th>
+                    <th>Enunciado</th>
+                    <th>Respuesta</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="questions-list-body">
+                <!-- Se cargan dinámicamente -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- MODAL DE EDICIÓN -->
+    <div id="modal-edit" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; overflow-y: auto; padding: 20px;">
+        <div class="admin-container" style="margin: 40px auto; max-width: 750px; position: relative;">
+            <span class="close-modal" id="close-modal-btn" style="position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</span>
+            <h2>Editar Pregunta</h2>
+            <form id="form-edit-question">
+                <input type="hidden" id="edit-doc-id">
+
+                <div class="form-group">
+                    <label for="edit-area-select">Área / Asignatura:</label>
+                    <select id="edit-area-select" required>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-question-text">Pregunta:</label>
+                    <input type="text" id="edit-question-text" required>
+                </div>
+
+                <!-- SELECTOR DE IMAGEN O TABLERO TIPO WORD (EDICIÓN) -->
+                <div class="form-group">
+                    <label>Complemento visual para el enunciado (Opcional):</label>
+                    <div class="visual-mode-buttons">
+                        <button type="button" id="btn-mode-none-edit"
+                            onclick="cambiarModoEdit('none')">Ninguno</button>
+                        <button type="button" id="btn-mode-image-edit"
+                            onclick="cambiarModoEdit('image')">Subir Imagen</button>
+                        <button type="button" id="btn-mode-canvas-edit"
+                            onclick="cambiarModoEdit('canvas')">Usar Tablero Estilo Word</button>
+                    </div>
+
+                    <!-- Sección Subir Imagen Edit -->
+                    <div id="section-image-edit" class="resource-section" style="display: none;">
+                        <input type="file" id="edit-question-image-file" accept="image/*">
+                        <div style="margin: 10px 0; text-align: center;">
+                            <img id="preview-edit-image" src="" alt="Vista previa"
+                                style="max-width: 250px; max-height: 160px; border-radius: 8px; display: none; object-fit: contain;">
+                        </div>
+                    </div>
+
+                    <!-- Sección Tablero Edit con opción de alternar -->
+                    <div id="section-canvas-edit" class="resource-section" style="display: none;">
+                        <div class="visual-mode-buttons" style="margin-bottom: 8px;">
+                            <button type="button" id="btn-submode-math-edit" onclick="cambiarSubModoEdit('math')">Editor Matemático</button>
+                            <button type="button" id="btn-submode-text-edit" onclick="cambiarSubModoEdit('text')">Texto Normal</button>
+                        </div>
+
+                        <div id="sub-container-math-edit">
+                            <math-field id="editor-container-edit" style="width: 100%; min-height: 120px; font-size: 20px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: white;">
+                                f(x) = \frac{x}{2}
+                            </math-field>
+                        </div>
+
+                        <div id="sub-container-text-edit" style="display: none;">
+                            <!-- BARRA DE HERRAMIENTAS TIPO WORD EDIT -->
+                            <div class="ql-toolbar ql-snow">
+                                <button type="button" onclick="formatoTextoEdit('bold')" title="Negrita"><i class="fas fa-bold"></i></button>
+                                <button type="button" onclick="formatoTextoEdit('italic')" title="Cursiva"><i class="fas fa-italic"></i></button>
+                                <button type="button" onclick="formatoTextoEdit('underline')" title="Subrayado"><i class="fas fa-underline"></i></button>
+                                <span style="border-left: 1px solid var(--border-color); margin: 0 2px;"></span>
+                                <button type="button" onclick="formatoTextoEdit('justifyLeft')" title="Alinear a la izquierda"><i class="fas fa-align-left"></i></button>
+                                <button type="button" onclick="formatoTextoEdit('justifyCenter')" title="Centrar"><i class="fas fa-align-center"></i></button>
+                                <button type="button" onclick="formatoTextoEdit('justifyRight')" title="Alinear a la derecha"><i class="fas fa-align-right"></i></button>
+                                <button type="button" onclick="formatoTextoEdit('justifyFull')" title="Justificar"><i class="fas fa-align-justify"></i></button>
+                            </div>
+
+                            <!-- ÁREA EDITABLE TIPO WORD EDIT -->
+                            <div id="textarea-container-edit" class="ql-container ql-snow" contenteditable="true" placeholder="Escribe aquí tu texto detallado..." style="padding: 10px; outline: none; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="options-grid">
+                    <div class="option-card-admin">
+                        <label>Opción A:</label>
+                        <input type="text" id="edit-opt-0" required>
+                        <input type="file" id="edit-opt-file-0" accept="image/*">
+                        <img id="edit-preview-opt-0" src=""
+                            style="max-width: 100px; display: none; margin-top: 5px; border-radius: 4px;"
+                            alt="Vista previa A">
+                    </div>
+                    <div class="option-card-admin">
+                        <label>Opción B:</label>
+                        <input type="text" id="edit-opt-1" required>
+                        <input type="file" id="edit-opt-file-1" accept="image/*">
+                        <img id="edit-preview-opt-1" src=""
+                            style="max-width: 100px; display: none; margin-top: 5px; border-radius: 4px;"
+                            alt="Vista previa B">
+                    </div>
+                    <div class="option-card-admin">
+                        <label>Opción C:</label>
+                        <input type="text" id="edit-opt-2" required>
+                        <input type="file" id="edit-opt-file-2" accept="image/*">
+                        <img id="edit-preview-opt-2" src=""
+                            style="max-width: 100px; display: none; margin-top: 5px; border-radius: 4px;"
+                            alt="Vista previa C">
+                    </div>
+                    <div class="option-card-admin">
+                        <label>Opción D:</label>
+                        <input type="text" id="edit-opt-3" required>
+                        <input type="file" id="edit-opt-file-3" accept="image/*">
+                        <img id="edit-preview-opt-3" src=""
+                            style="max-width: 100px; display: none; margin-top: 5px; border-radius: 4px;"
+                            alt="Vista previa D">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 15px;">
+                    <label for="edit-correct-answer">Respuesta Correcta:</label>
+                    <select id="edit-correct-answer" required>
+                        <option value="0">Opción A</option>
+                        <option value="1">Opción B</option>
+                        <option value="2">Opción C</option>
+                        <option value="3">Opción D</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn">Actualizar Pregunta</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script para rellenar automáticamente las asignaturas en los selects -->
+    <script>
+        const listaAsignaturas = [
+            { value: "matematicas", text: "Matemáticas" },
+            { value: "quimica", text: "Química" },
+            { value: "espanol", text: "Español" },
+            { value: "administracion", text: "Administración" },
+            { value: "etica_religion", text: "Ética y Religión" },
+            { value: "sociales", text: "Sociales" },
+            { value: "edu_fisica", text: "Educación Física" },
+            { value: "ingles", text: "Inglés" },
+            { value: "fisica", text: "Física" },
+            { value: "biologia", text: "Biología" }
+        ];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const selectores = [
+                document.getElementById('area-select'),
+                document.getElementById('filter-area'),
+                document.getElementById('edit-area-select')
+            ];
+
+            selectores.forEach((sel, idx) => {
+                if (!sel) return;
+                if (idx === 1 && !sel.querySelector('option[value="todas"]')) {
+                    let optTodas = document.createElement('option');
+                    optTodas.value = "todas";
+                    optTodas.textContent = "Todas las áreas";
+                    sel.appendChild(optTodas);
+                }
+
+                listaAsignaturas.forEach(item => {
+                    if (!sel.querySelector(`option[value="${item.value}"]`)) {
+                        let opt = document.createElement('option');
+                        opt.value = item.value;
+                        opt.textContent = item.text;
+                        sel.appendChild(opt);
+                    }
+                });
+            });
+        });
+    </script>
+
+    <!-- Scripts de Firebase y App -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="admin.js"></script>
+</body>
+
+</html>
