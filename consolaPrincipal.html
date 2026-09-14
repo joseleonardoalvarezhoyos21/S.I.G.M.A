@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consola Principal - Administrador Sigma</title>
+    <link rel="stylesheet" href="consolaPrincipal.css">
+</head>
+<body>
+
+    <!-- SECCIÓN DE LOGIN (Se muestra por defecto si no hay sesión) -->
+    <div id="login-section" class="auth-container">
+        <h2>🔒 Acceso a Consola Principal</h2>
+        <p>Ingresa tus credenciales de administrador</p>
+        <form id="form-admin-login">
+            <div class="form-group">
+                <label for="admin-email">Correo Electrónico</label>
+                <input type="email" id="admin-email" required placeholder="admin@sigma.com">
+            </div>
+            <div class="form-group">
+                <label for="admin-password">Contraseña</label>
+                <input type="password" id="admin-password" required placeholder="********">
+            </div>
+            <button type="submit">Ingresar al Panel</button>
+            <p id="login-error" style="color: red; display: none; margin-top: 10px;"></p>
+        </form>
+    </div>
+
+    <!-- PANEL DE ADMINISTRACIÓN (Oculto hasta que inicies sesión) -->
+    <div id="dashboard-container" class="container" style="display: none;">
+        <div class="top-bar">
+            <button type="button" class="logout-btn" id="btn-logout">Cerrar Sesión</button>
+        </div>
+
+        <h1>Consola Principal - Administrador</h1>
+        <p>Panel de control exclusivo para registrar instituciones, profesores y gestionar accesos.</p>
+
+        <!-- SECCIÓN 1: REGISTRAR COLEGIO -->
+        <div class="section">
+            <h2>1. Registrar Nuevo Colegio</h2>
+            <form id="form-colegio">
+                <div class="form-group">
+                    <label for="nombre-colegio">Nombre del Colegio</label>
+                    <input type="text" id="nombre-colegio" required placeholder="Ej. Colegio San José">
+                </div>
+                <div class="form-group">
+                    <label for="estado-colegio">Estado Inicial</label>
+                    <select id="estado-colegio">
+                        <option value="activo">Activo</option>
+                        <option value="inactivo">Inactivo (Suspendido)</option>
+                    </select>
+                </div>
+                <button type="submit">Guardar Colegio</button>
+            </form>
+        </div>
+
+        <!-- SECCIÓN 2: REGISTRAR USUARIO -->
+        <div class="section">
+            <h2>2. Registrar Usuario (Profesor / Externo / Colegio)</h2>
+            <form id="form-usuario">
+                <div class="form-group">
+                    <label for="email-usuario">Correo Electrónico (Para Login)</label>
+                    <input type="email" id="email-usuario" required placeholder="profesor@correo.com">
+                </div>
+                <div class="form-group">
+                    <label for="password-usuario">Contraseña Temporal</label>
+                    <input type="password" id="password-usuario" required placeholder="Mínimo 6 caracteres">
+                </div>
+                <div class="form-group">
+                    <label for="nombre-usuario">Nombre Completo</label>
+                    <input type="text" id="nombre-usuario" required placeholder="Ej. Juan Pérez">
+                </div>
+                <div class="form-group">
+                    <label for="rol-usuario">Rol en la Plataforma</label>
+                    <select id="rol-usuario" required>
+                        <option value="">Seleccione un rol...</option>
+                        <option value="colegio">Cuenta Institucional (Colegio)</option>
+                        <option value="profesor">Profesor Asociado a Colegio</option>
+                        <option value="externo">Profesor Externo (Independiente)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="grupo-colegio-select" style="display: none;">
+                    <label for="colegio-asociado">Seleccionar Colegio al que Pertenece</label>
+                    <select id="colegio-asociado">
+                        <option value="">Seleccione un colegio...</option>
+                    </select>
+                </div>
+
+                <button type="submit">Crear Usuario en Firebase</button>
+            </form>
+        </div>
+
+        <hr style="margin: 40px 0; border: none; border-top: 1px solid #ccc;">
+
+        <!-- SECCIÓN 3: GESTIÓN (Ahora dentro del dashboard para que se oculte al cerrar sesión) -->
+        <div class="section">
+            <h2>Gestión de Colegios y Profesores</h2>
+            <div id="lista-colegios-container">
+                <p>Cargando registros...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="consolaPrincipal.js"></script>
+</body>
+</html>

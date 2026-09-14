@@ -15,6 +15,7 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.firestore();
+const auth = firebase.auth();
 
 let preguntas = [];
 let codigoExamenActual = "";
@@ -70,23 +71,30 @@ const emailStatus = document.getElementById("email-status");
 const btnRestart = document.getElementById("btn-restart");
 
 // ==========================================
-// CARGAR PREGUNTAS EN EL PANEL DE ADMIN
+// CARGAR SOLO LAS PREGUNTAS DEL PROFESOR ACTUAL
 // ==========================================
 async function cargarPreguntasParaSeleccion() {
     const contenedor = document.getElementById("admin-preguntas-lista");
     if (!contenedor) return;
 
-    contenedor.innerHTML = "<p style='color: #666; padding: 10px;'>Cargando preguntas disponibles...</p>";
+    const user = auth.currentUser;
+    if (!user) {
+        contenedor.innerHTML = "<p style='color: #e74c3c; padding: 10px;'>Debes iniciar sesión para ver tus preguntas.</p>";
+        return;
+    }
+
+    contenedor.innerHTML = "<p style='color: #666; padding: 10px;'>Cargando tus preguntas...</p>";
 
     const filtroAreaSelect = document.getElementById("admin-filtro-area");
     const areaSeleccionada = filtroAreaSelect ? filtroAreaSelect.value : "todas";
 
     try {
-        let query = db.collection("preguntas");
-        const snapshot = await query.get();
+        const snapshot = await db.collection("preguntas")
+            .where("creadorId", "==", user.uid)
+            .get();
 
         if (snapshot.empty) {
-            contenedor.innerHTML = "<p style='color: #e74c3c; padding: 10px;'>No hay preguntas registradas en la base de datos.</p>";
+            contenedor.innerHTML = "<p style='color: #e74c3c; padding: 10px;'>No tienes preguntas registradas aún.</p>";
             return;
         }
 
@@ -127,9 +135,15 @@ async function cargarPreguntasParaSeleccion() {
 }
 
 // ==========================================
-// CREAR EVALUACIÓN MANUAL (CON TIEMPO PERSONALIZADO)
+// CREAR EVALUACIÓN MANUAL (ASOCIADA AL PROFESOR)
 // ==========================================
 async function crearEvaluacionManual() {
+    const user = auth.currentUser;
+    if (!user) {
+        alert("⚠️ Sesión no válida. Por favor, vuelve a iniciar sesión.");
+        return;
+    }
+
     const tituloInput = document.getElementById("admin-titulo");
     const titulo = tituloInput ? tituloInput.value.trim() : "";
     
@@ -161,6 +175,7 @@ async function crearEvaluacionManual() {
             preguntasIds: preguntasIds,
             duracionSegundos: tiempoEnSegundos,
             activa: true,
+            creadorId: user.uid,
             creadaEn: firebase.firestore.FieldValue.serverTimestamp()
         });
 
@@ -499,7 +514,6 @@ async function showResults(leftScreen = false) {
             tiempoUtilizado: timeUsedText,
             fecha: firebase.firestore.FieldValue.serverTimestamp(),
             salioDePantalla: leftScreen ? "⚠️ Salió de la pantalla" : "Normal"
-            
         });
     } catch (fbError) {
         console.error("❌ Error al guardar el resultado en Firebase:", fbError);
@@ -594,44 +608,91 @@ function cerrarModalAdmin() {
     }
 }
 
-function validarLoginAdmin(event) {
-    event.preventDefault();
+// ==========================================
+// LOGIN CON VALIDACIÓN DE ESTADO Y COLEGIO (ACTUALIZADO)
+// ==========================================
+const formAdminLogin = document.getElementById('form-admin-login');
+if (formAdminLogin) {
+    formAdminLogin.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('admin-email') ? document.getElementById('admin-email').value : document.getElementById('admin-user-input').value;
+        const password = document.getElementById('admin-password') ? document.getElementById('admin-password').value : document.getElementById('admin-pass-input').value;
+        const loginError = document.getElementById('login-error') || document.getElementById('login-error-msg');
 
-    const usuarioInput = document.getElementById('admin-user-input').value.trim();
-    const passInput = document.getElementById('admin-pass-input').value.trim();
+        try {
+            if (loginError) loginError.style.display = 'none';
+            
+            // 1. Iniciar sesión en Firebase Auth
+            const userCredential = await auth.signInWithEmailAndPassword(email, password);
+            const uid = userCredential.user.uid;
 
-    const USUARIO_VALIDO = "profesor";
-    const PASSWORD_VALIDO = "admin2026";
+            // 2. Consultar el estado del usuario en Firestore (utilizando la sintaxis modular o namespaced de compatibilidad según corresponda, aquí usando Firestore namespaced SDK)
+            const userDoc = await db.collection("usuarios").doc(uid).get();
 
-    if (usuarioInput === USUARIO_VALIDO && passInput === PASSWORD_VALIDO) {
-        cerrarModalAdmin();
-        
-        const vistaEstudiante = document.getElementById("vista-estudiante");
-        const vistaAdmin = document.getElementById("vista-admin");
-        if (vistaEstudiante) vistaEstudiante.style.display = "none";
-        if (vistaAdmin) vistaAdmin.style.display = "block";
-        
-        if (typeof cargarPreguntasParaSeleccion === "function") cargarPreguntasParaSeleccion();
-        if (typeof cargarListaEvaluaciones === "function") cargarListaEvaluaciones();
-        if (typeof cargarListaEvaluacionesAdmin === "function") cargarListaEvaluacionesAdmin();
-    } else {
-        const errorMsg = document.getElementById('login-error-msg');
-        if (errorMsg) {
-            errorMsg.textContent = "❌ Usuario o contraseña incorrectos.";
-            errorMsg.style.display = 'block';
+            if (userDoc.exists) {
+                const userData = userDoc.data();
+                
+                // Validar si el profesor está inactivo
+                if (userData.estado === 'inactivo') {
+                    await auth.signOut();
+                    if (loginError) {
+                        loginError.style.display = 'block';
+                        loginError.textContent = "Su cuenta se encuentra inactiva. Contacte al administrador.";
+                    }
+                    return;
+                }
+
+                // Validar si el colegio asociado está inactivo (Cascada)
+                if (userData.colegioId) {
+                    const colegioDoc = await db.collection("colegios").doc(userData.colegioId).get();
+                    if (colegioDoc.exists && colegioDoc.data().estado === 'inactivo') {
+                        await auth.signOut();
+                        if (loginError) {
+                            loginError.style.display = 'block';
+                            loginError.textContent = "El colegio asociado está inactivo. Acceso denegado.";
+                        }
+                        return;
+                    }
+                }
+            }
+
+            cerrarModalAdmin();
+            
+            const vistaEstudiante = document.getElementById("vista-estudiante");
+            const vistaAdmin = document.getElementById("vista-admin");
+            if (vistaEstudiante) vistaEstudiante.style.display = "none";
+            if (vistaAdmin) vistaAdmin.style.display = "block";
+            
+            if (typeof cargarPreguntasParaSeleccion === "function") cargarPreguntasParaSeleccion();
+            if (typeof cargarListaEvaluaciones === "function") cargarListaEvaluaciones();
+            if (typeof cargarListaEvaluacionesAdmin === "function") cargarListaEvaluacionesAdmin();
+
+        } catch (error) {
+            console.error("Error de login:", error);
+            if (loginError) {
+                loginError.style.display = 'block';
+                loginError.textContent = "Correo o contraseña incorrectos.";
+            }
         }
-    }
+    });
 }
 
 // ==========================================
-// CARGAR LISTADOS Y GESTIÓN DE ADMINISTRADOR
+// CARGAR LISTADOS Y GESTIÓN DE ADMINISTRADOR (SOLO DEL PROFESOR)
 // ==========================================
 async function cargarListaEvaluaciones() {
     const contenedor = document.getElementById("admin-evaluaciones-lista") || document.getElementById("excel-codigo-evaluacion");
     if (!contenedor) return;
 
+    const user = auth.currentUser;
+    if (!user) return;
+
     try {
-        const snapshot = await db.collection("evaluaciones").orderBy("creadaEn", "desc").get();
+        const snapshot = await db.collection("evaluaciones")
+            .where("creadorId", "==", user.uid)
+            .orderBy("creadaEn", "desc")
+            .get();
+
         if (snapshot.empty) return;
 
         if (contenedor.tagName === "SELECT") {
@@ -653,13 +714,22 @@ async function cargarListaEvaluacionesAdmin() {
     const contenedor = document.getElementById("admin-lista-evaluaciones");
     if (!contenedor) return;
 
-    contenedor.innerHTML = "<p style='color: #666; margin: 0;'>Cargando evaluaciones...</p>";
+    const user = auth.currentUser;
+    if (!user) {
+        contenedor.innerHTML = "<p style='color: #e74c3c; margin: 0;'>Debes iniciar sesión.</p>";
+        return;
+    }
+
+    contenedor.innerHTML = "<p style='color: #666; margin: 0;'>Cargando tus evaluaciones...</p>";
 
     try {
-        const snapshot = await db.collection("evaluaciones").orderBy("creadaEn", "desc").get();
+        const snapshot = await db.collection("evaluaciones")
+            .where("creadorId", "==", user.uid)
+            .orderBy("creadaEn", "desc")
+            .get();
 
         if (snapshot.empty) {
-            contenedor.innerHTML = "<p style='color: #e74c3c; margin: 0;'>No hay evaluaciones registradas.</p>";
+            contenedor.innerHTML = "<p style='color: #e74c3c; margin: 0;'>No tienes evaluaciones registradas.</p>";
             return;
         }
 
@@ -698,10 +768,17 @@ async function editarEvaluacionSeleccionada() {
         return;
     }
 
+    const user = auth.currentUser;
+    if (!user) return;
+
     try {
-        const snapshot = await db.collection("evaluaciones").where("codigo", "==", codigoEvaluacion).get();
+        const snapshot = await db.collection("evaluaciones")
+            .where("codigo", "==", codigoEvaluacion)
+            .where("creadorId", "==", user.uid)
+            .get();
+
         if (snapshot.empty) {
-            alert(`⚠️ No se encontró la evaluación con código: ${codigoEvaluacion}`);
+            alert(`⚠️ No se encontró la evaluación con código: ${codigoEvaluacion} asociada a tu cuenta.`);
             return;
         }
 
@@ -721,9 +798,12 @@ async function editarEvaluacionSeleccionada() {
         const contenedorPreguntas = document.getElementById("edit-eval-preguntas-lista");
         contenedorPreguntas.innerHTML = "<p style='color: #666;'>Cargando preguntas...</p>";
 
-        const preguntasSnapshot = await db.collection("preguntas").get();
+        const preguntasSnapshot = await db.collection("preguntas")
+            .where("creadorId", "==", user.uid)
+            .get();
+
         if (preguntasSnapshot.empty) {
-            contenedorPreguntas.innerHTML = "<p style='color: #e74c3c;'>No hay preguntas registradas en el sistema.</p>";
+            contenedorPreguntas.innerHTML = "<p style='color: #e74c3c;'>No tienes preguntas registradas en el sistema.</p>";
             return;
         }
 
@@ -787,10 +867,11 @@ async function guardarEdicionEvaluacion() {
         await db.collection("evaluaciones").doc(evaluacionIdEnEdicion).update({
             titulo: nuevoTitulo,
             duracionSegundos: nuevosSegundos,
-            preguntasIds: nuevosIdsPreguntas
+            preguntasIds: nuevosIdsPreguntas,
+            actualizadaEn: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        alert("✅ ¡Evaluación actualizada correctamente con su tiempo y preguntas!");
+        alert("✅ ¡Evaluación actualizada correctamente!");
         cerrarModalEditar();
         if (typeof cargarListaEvaluacionesAdmin === "function") cargarListaEvaluacionesAdmin();
         if (typeof cargarListaEvaluaciones === "function") cargarListaEvaluaciones();
@@ -809,10 +890,17 @@ async function cerrarEvaluacionPorCodigo() {
         alert("⚠️ Ingresa el código de la evaluación.");
         return;
     }
+    const user = auth.currentUser;
+    if (!user) return;
+
     try {
-        const snapshot = await db.collection("evaluaciones").where("codigo", "==", codigo).get();
+        const snapshot = await db.collection("evaluaciones")
+            .where("codigo", "==", codigo)
+            .where("creadorId", "==", user.uid)
+            .get();
+
         if (snapshot.empty) {
-            alert("⚠️ No se encontró la evaluación.");
+            alert("⚠️ No se encontró la evaluación en tu cuenta.");
             return;
         }
         const docRef = snapshot.docs[0];
@@ -834,10 +922,17 @@ async function eliminarEvaluacionSeleccionada() {
     }
     if (!confirm(`¿Estás seguro de eliminar la evaluación con código ${codigo}?`)) return;
 
+    const user = auth.currentUser;
+    if (!user) return;
+
     try {
-        const snapshot = await db.collection("evaluaciones").where("codigo", "==", codigo).get();
+        const snapshot = await db.collection("evaluaciones")
+            .where("codigo", "==", codigo)
+            .where("creadorId", "==", user.uid)
+            .get();
+
         if (snapshot.empty) {
-            alert("⚠️ No se encontró la evaluación.");
+            alert("⚠️ No se encontró la evaluación en tu cuenta.");
             return;
         }
         await snapshot.docs[0].ref.delete();
@@ -875,7 +970,6 @@ async function exportarResultadosExcel() {
                 "Tiempo Usado": d.tiempoUtilizado,
                 "Fecha": d.fecha ? d.fecha.toDate().toLocaleString() : "N/D",
                 "Salidas de Pantalla": d.salioDePantalla || "Normal"
-                
             });
         });
         const worksheet = XLSX.utils.json_to_sheet(datosExcel);

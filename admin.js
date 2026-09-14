@@ -12,6 +12,7 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.firestore();
+const auth = firebase.auth(); // 👈 Definido correctamente aquí
 
 let allQuestions = [];
 window.imagenActualTemp = "";
@@ -260,11 +261,9 @@ window.openEditModal = function(id) {
     const editorEdit = document.getElementById("editor-container-edit");
     const textareaEdit = document.getElementById("textarea-container-edit");
 
-    // Limpiar campos iniciales
     if (editorEdit) { if (typeof editorEdit.setValue === 'function') editorEdit.setValue(""); else editorEdit.value = ""; }
     if (textareaEdit) textareaEdit.innerHTML = "";
 
-    // Revisar qué tipo de recurso complementario tenía guardado
     if (q.imagen && q.imagen.trim() !== "") {
         cambiarModoEdit('image');
         previewEditImage.src = q.imagen;
@@ -274,7 +273,6 @@ window.openEditModal = function(id) {
         previewEditImage.src = "";
         previewEditImage.style.display = "none";
 
-        // Detectar si es LaTeX o Texto Enriquecido HTML
         if (q.tipoEnriquecido === 'math' || q.enunciadoEnriquecido.includes("\\") || q.enunciadoEnriquecido.includes("frac")) {
             cambiarSubModoEdit('math');
             if (editorEdit) {
@@ -321,14 +319,29 @@ window.addEventListener("click", (e) => {
 });
 
 function cargarPreguntas() {
-    db.collection("preguntas").onSnapshot((snapshot) => {
+    const colegioId = localStorage.getItem("colegioId") || "";
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+        console.warn("Esperando autenticación del usuario...");
+        return;
+    }
+
+    const profesorId = currentUser.uid;
+    let query = db.collection("preguntas").where("creadorId", "==", profesorId);
+
+    if (colegioId) {
+        query = query.where("colegioId", "==", colegioId);
+    }
+
+    query.onSnapshot((snapshot) => {
         allQuestions = [];
         snapshot.forEach((doc) => {
             allQuestions.push({ id: doc.id, ...doc.data() });
         });
         filtrarYMostrarPreguntas();
     }, (error) => {
-        console.error(error);
+        console.error("Error al cargar preguntas:", error);
     });
 }
 
@@ -347,7 +360,7 @@ function filtrarYMostrarPreguntas() {
     questionsListBody.innerHTML = "";
 
     if (preguntasFiltradas.length === 0) {
-        questionsListBody.innerHTML = `<tr><td colspan="4" style="text-align: center;">No hay preguntas registradas en esta área.</td></tr>`;
+        questionsListBody.innerHTML = `<tr><td colspan="4" style="text-align: center;">No hay preguntas registradas en esta área para tu usuario.</td></tr>`;
         return;
     }
 
@@ -424,10 +437,21 @@ if (formAddQuestion) {
             opcionesImagenes.push(previewOpt.style.display !== "none" ? previewOpt.src : "");
         }
 
+        const colegioId = localStorage.getItem("colegioId") || "";
+        const currentUser = auth.currentUser;
+        const creadorId = currentUser ? currentUser.uid : "";
+
+        if (!creadorId) {
+            alert("Error: No hay una sesión de profesor activa.");
+            return;
+        }
+
         try {
             await db.collection("preguntas").add({
                 area,
                 pregunta,
+                colegioId,
+                creadorId,
                 imagen: imagenEnunciado,
                 enunciadoEnriquecido,
                 tipoEnriquecido,
@@ -458,6 +482,7 @@ if (formAddQuestion) {
                 document.getElementById(`preview-opt-${i}`).style.display = "none";
             }
         } catch (error) {
+            console.error("Error al guardar:", error);
             alert("Hubo un error al guardar la pregunta.");
         }
     });
@@ -519,10 +544,14 @@ if (formEditQuestion) {
             opcionesImagenes.push(imgOp);
         }
 
+        const currentUser = auth.currentUser;
+        const creadorId = currentUser ? currentUser.uid : "";
+
         try {
             await db.collection("preguntas").doc(id).update({
                 area,
                 pregunta,
+                creadorId,
                 imagen: imagenEnunciado,
                 enunciadoEnriquecido,
                 tipoEnriquecido,
@@ -552,5 +581,12 @@ window.eliminarPregunta = async function(id) {
 };
 
 function iniciarApp() {
-    cargarPreguntas();
+    // Escuchar cambios de autenticación para cargar las preguntas automáticamente cuando el usuario esté listo
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            cargarPreguntas();
+        } else {
+            console.warn("No hay sesión activa.");
+        }
+    });
 }
